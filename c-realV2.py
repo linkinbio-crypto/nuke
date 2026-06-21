@@ -1008,7 +1008,7 @@ async def webhook(ctx, *, args=None):
             validated_count = 0
 
             async def validate_webhook(wh):
-                test_payload = {'content': 'Ping from Cipher'}
+                test_payload = {'content': '@everyone fuccking arima nigger'}
                 try:
                     resp = requests.post(wh.url, json=test_payload, timeout=5)
                     if resp.status_code in (200, 204):
